@@ -1,0 +1,19 @@
+<< Define a table (Loop)
+>> FORGE LOOP MyLoop
+
+<< Define columns (Segments)
+>> SEGMENT LOOP MyLoop INTO S1
+>> SEGMENT LOOP MyLoop INTO S2
+>> SEGMENT LOOP MyLoop INTO S3
+
+<< Insert values into columns (Segments)
+>> CRAFT "OM" INTO S1 IN MyLoop
+>> CRAFT "Val1" INTO S2 IN MyLoop
+>> CRAFT "Val2" INTO S3 IN MyLoop
+
+>> CRAFT "Val3" INTO S1 IN MyLoop
+>> CRAFT "Val4" INTO S2 IN MyLoop
+>> CRAFT "Val5" INTO S3 IN MyLoop
+
+>> CRAFT "Val3" INTO S1 IN MyLoop
+>> CHANGE MASTER SEGMENT OF MyLoop TO S1

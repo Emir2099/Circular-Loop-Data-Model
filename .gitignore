@@ -1,0 +1,20 @@
+# Ignore Python bytecode files
+*.pyc
+__pycache__/
+
+# Ignore environment files
+.env
+
+# Ignore log files
+*.log
+
+# Ignore specific directories
+node_modules/
+dist/
+build/
+
+# Ignore specific files
+cldm_runner.spec
+log.py
+updated_log2.py
+updatedlog.py
