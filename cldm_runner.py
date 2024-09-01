@@ -1,6 +1,10 @@
 import re
 import sys
 
+import bson
+from custom_database import CustomDatabase 
+import time
+
 # Define regex patterns for each command type
 patterns = {
     'create_loop': r'^FORGE LOOP (\w+)$',
@@ -50,74 +54,94 @@ def parse_command(command):
     print("\033[93mNo matching pattern found.\033[0m")  # Yellow for debug statements
     return None
 
+
+
+
 def execute_command(parsed_command, database):
     print(f"\033[93mExecuting command: {parsed_command}\033[0m")  # Yellow for debug statements
-    if parsed_command['action'] == "create_loop":
-        loop_name = parsed_command['loop_name']
-        database[loop_name] = {}
-        print(f"\033[92mLoop {loop_name} created.\033[0m")  # Green for user-visible text
+    db_data = database.data
+    if db_data is None:
+        print("\033[91mDatabase is not loaded properly.\033[0m")  # Red for error messages
+        return
     
-    elif parsed_command['action'] == "segment_loop":
-        loop_name = parsed_command['loop_name']
-        segment_name = parsed_command['segment_name']
-        if loop_name in database:
-            database[loop_name][segment_name] = []
-            print(f"\033[92mSegment {segment_name} added to Loop {loop_name}.\033[0m")  # Green for user-visible text
-        else:
-            print(f"\033[91mLoop {loop_name} does not exist.\033[0m")  # Red for error messages
-    
-    elif parsed_command['action'] == "craft":
-        loop_name = parsed_command['loop_name']
-        segment_name = parsed_command['segment_name']
-        value = parsed_command['value']
-        print(f"\033[93mCrafting value {value} in segment {segment_name} in Loop {loop_name}.\033[0m")  # Yellow for debug
-        if loop_name in database and segment_name in database[loop_name]:
-            database[loop_name][segment_name].append(value)
-            print(f"\033[92mValue {value} added to Segment {segment_name} in Loop {loop_name}.\033[0m")  # Green for user-visible text
-            
-            # Check for master segment
-            check_master_segment(database[loop_name])
-        else:
-            print(f"\033[91mLoop or Segment does not exist.\033[0m")  # Red for error messages
-    
-    elif parsed_command['action'] == "select":
-        loop_name = parsed_command['loop_name']
-        condition_key, condition_value = parsed_command['condition'].split('=')
-        condition_key = condition_key.strip()
-        condition_value = condition_value.strip().strip('"')
-        print(f"\033[93mSelecting from loop {loop_name} where {condition_key} = {condition_value}\033[0m")  # Yellow for debug
+    try:
+        if parsed_command['action'] == "create_loop":
+            loop_name = parsed_command['loop_name']
+            if loop_name not in db_data:
+                db_data[loop_name] = {}
+                print(f"\033[92mLoop {loop_name} created.\033[0m")  # Green for user-visible text
+                database.save()
+        elif parsed_command['action'] == "segment_loop":
+            loop_name = parsed_command['loop_name']
+            segment_name = parsed_command['segment_name']
+            if loop_name in db_data:
+                db_data[loop_name][segment_name] = []
+                print(f"\033[92mSegment {segment_name} added to Loop {loop_name}.\033[0m")  # Green for user-visible text
+                database.save()
+            else:
+                print(f"\033[91mLoop {loop_name} does not exist.\033[0m")  # Red for error messages
         
-        if loop_name in database:
-            result = []
-            for segment_name, values in database[loop_name].items():
-                if segment_name == condition_key:
-                    for value in values:
-                        if value == condition_value:
-                            result.append({attr: value for attr in parsed_command['attributes']})
-            if result:
-                print(f"\033[92mResult: {result}\033[0m")  # Green for user-visible text
+        elif parsed_command['action'] == "craft":
+            loop_name = parsed_command['loop_name']
+            segment_name = parsed_command['segment_name']
+            value = parsed_command['value']
+            print(f"\033[93mCrafting value {value} in segment {segment_name} in Loop {loop_name}.\033[0m")  # Yellow for debug
+            if loop_name in db_data and segment_name in db_data[loop_name]:
+                db_data[loop_name][segment_name].append(value)
+                print(f"\033[92mValue {value} added to Segment {segment_name} in Loop {loop_name}.\033[0m")  # Green for user-visible text
+                
+                # Check for master segment
+                check_master_segment(db_data[loop_name])
+                database.save()
             else:
-                print(f"\033[91mNo matching records found.\033[0m")  # Red for error messages
-        else:
-            print(f"\033[91mLoop {loop_name} does not exist.\033[0m")  # Red for error messages
-    
-    elif parsed_command['action'] == "change_master":
-        loop_name = parsed_command['loop_name']
-        segment_name = parsed_command['segment_name']
-        print(f"\033[93mAttempting to change master segment to {segment_name} for loop {loop_name}\033[0m")  # Yellow for debug
+                print(f"\033[91mLoop or Segment does not exist.\033[0m")  # Red for error messages
+        
+        elif parsed_command['action'] == "select":
+            loop_name = parsed_command['loop_name']
+            condition_key, condition_value = parsed_command['condition'].split('=')
+            condition_key = condition_key.strip()
+            condition_value = condition_value.strip().strip('"')
+            print(f"\033[93mSelecting from loop {loop_name} where {condition_key} = {condition_value}\033[0m")  # Yellow for debug
+            
+            if loop_name in db_data:
+                result = []
+                for segment_name, values in db_data[loop_name].items():
+                    if segment_name == condition_key:
+                        for value in values:
+                            if value == condition_value:
+                                result.append({attr: value for attr in parsed_command['attributes']})
+                if result:
+                    print(f"\033[92mResult: {result}\033[0m")  # Green for user-visible text
+                else:
+                    print(f"\033[91mNo matching records found.\033[0m")  # Red for error messages
+            else:
+                print(f"\033[91mLoop {loop_name} does not exist.\033[0m")  # Red for error messages
+        
+        elif parsed_command['action'] == "change_master":
+            loop_name = parsed_command['loop_name']
+            segment_name = parsed_command['segment_name']
+            print(f"\033[93mAttempting to change master segment to {segment_name} for loop {loop_name}\033[0m")  # Yellow for debug
 
-        if loop_name in database:
-            segment_values = database[loop_name].get(segment_name, [])
-            if len(segment_values) == len(set(segment_values)):
-                database[loop_name]['MasterSegment'] = segment_name
-                print(f"\033[92mMaster Segment changed to {segment_name} for Loop {loop_name}.\033[0m")  # Green for user-visible text
+            if loop_name in db_data:
+                segment_values = db_data[loop_name].get(segment_name, [])
+                if len(segment_values) == len(set(segment_values)):
+                    db_data[loop_name]['MasterSegment'] = segment_name
+                    print(f"\033[92mMaster Segment changed to {segment_name} for Loop {loop_name}.\033[0m")  # Green for user-visible text
+                    
+                else:
+                    print(f"\033[91mError: Segment {segment_name} contains non-unique values and cannot be used as the Master Segment.\033[0m")  # Red for error messages
+                database.save()        
             else:
-                print(f"\033[91mError: Segment {segment_name} contains non-unique values and cannot be used as the Master Segment.\033[0m")  # Red for error messages
+                print(f"\033[91mLoop {loop_name} does not exist.\033[0m")  # Red for error messages
+        
         else:
-            print(f"\033[91mLoop {loop_name} does not exist.\033[0m")  # Red for error messages
+            print("\033[91mInvalid command.\033[0m")  # Red for error messages
     
-    else:
-        print("\033[91mInvalid command.\033[0m")  # Red for error messages
+    except IndexError as e:
+        print(f"\033[91mError: {str(e)}\033[0m")  # Red for error messages
+        print(f"\033[91mFailed to execute command: {parsed_command}\033[0m")  # Red for error messages
+
+
 
 def check_master_segment(loop_data):
     # Check if any segment has unique values
@@ -141,10 +165,12 @@ def check_master_segment(loop_data):
         print(f"\033[92mNew Master Segment created with unique values: {loop_data['MasterSegment']}\033[0m")  # Green for user-visible text
 
 
-def execute_file_commands(file_path):
-    database = {}
+def execute_file_commands(cldm_file_path, db_file_path):
+    database = CustomDatabase(db_file_path)
 
-    with open(file_path, 'r') as file:
+    
+
+    with open(cldm_file_path, 'r') as file:
         commands = file.readlines()
 
     current_block = []
@@ -169,17 +195,29 @@ def execute_file_commands(file_path):
         parsed_command = parse_command(block_command)
         if parsed_command:
             execute_command(parsed_command, database)
+            
+    with open('database.bson', 'rb') as file:
+        data = file.read()
+        print(data)  # Print raw data to check its content
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("\033[91mUsage: cldm.exe <file.cldm>\033[0m")  # Red for error messages
+    if len(sys.argv) != 3:
+        print("\033[91mUsage: cldm.exe <file.cldm> <database.bson>\033[0m")  # Red for error messages
         sys.exit(1)
     
-    file_path = sys.argv[1]
-    if not file_path.endswith('.cldm'):
-        print("\033[91mError: The file must have a .cldm extension\033[0m")  # Red for error messages
+    cldm_file_path = sys.argv[1]
+    db_file_path = sys.argv[2]
+
+    if not cldm_file_path.endswith('.cldm'):
+        print("\033[91mError: The command file must have a .cldm extension\033[0m")  # Red for error messages
         sys.exit(1)
     
-    execute_file_commands(file_path)
-    
-input("Press Enter to exit...")
+    if not db_file_path.endswith('.bson'):
+        print("\033[91mError: The database file must have a .bson extension\033[0m")  # Red for error messages
+        sys.exit(1)
+    start_time = time.time()
+    execute_file_commands(cldm_file_path, db_file_path)
+    end_time= time.time()
+    execution_time = end_time-start_time
+    print(f"Total execution time: {execution_time:.4f} seconds")
+    input("Press Enter to exit...")
