@@ -122,20 +122,24 @@ def execute_command(parsed_command, database):
 def check_master_segment(loop_data):
     # Check if any segment has unique values
     current_master = loop_data.get('MasterSegment', None)
-    unique_segment = None
+    max_segment_length = 0
+    new_master_segment = None
 
     for segment_name, values in loop_data.items():
-        if len(values) == len(set(values)):
-            unique_segment = segment_name
-            break
+        if segment_name != 'MasterSegment':
+            if len(values) > max_segment_length and len(values) == len(set(values)):
+                new_master_segment = segment_name
+                max_segment_length = len(values)
 
-    if unique_segment and unique_segment != current_master:
-        loop_data['MasterSegment'] = unique_segment
-        print(f"\033[92mMaster Segment selected: {unique_segment}\033[0m")  # Green for user-visible text
-    elif not unique_segment and not current_master:
+    if new_master_segment and new_master_segment != current_master:
+        loop_data['MasterSegment'] = new_master_segment
+        print(f"\033[92mMaster Segment selected: {new_master_segment}\033[0m")  # Green for user-visible text
+    elif not new_master_segment and not current_master:
         # Create a new Master Segment with unique values
-        loop_data['MasterSegment'] = ['1', '2', '3', '4', '5'][:len(loop_data[next(iter(loop_data))])]
+        max_length = max_segment_length
+        loop_data['MasterSegment'] = list(map(str, range(1, max_length + 1)))
         print(f"\033[92mNew Master Segment created with unique values: {loop_data['MasterSegment']}\033[0m")  # Green for user-visible text
+
 
 def execute_file_commands(file_path):
     database = {}
