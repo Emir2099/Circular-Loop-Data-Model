@@ -1,18 +1,21 @@
 import re
 import sys
-
+import matplotlib.pyplot as plt
 import bson
 from custom_database import CustomDatabase 
 import time
+import mplcursors
 
 # Define regex patterns for each command type
 patterns = {
     'create_loop': r'^FORGE LOOP (\w+)$',
     'segment_loop': r'^SEGMENT LOOP (\w+) INTO (\w+)$',
     'craft': r'^CRAFT "([^"]+)" INTO (\w+) IN (\w+)$',
-    'change_master': r'^CHANGE MASTER SEGMENT OF (\w+) TO (\w+)$'
+    'change_master': r'^CHANGE MASTER SEGMENT OF (\w+) TO (\w+)$',
+    'link_segment': r'^LINK SEGMENT (\w+) IN (\w+) TO (\w+) IN (\w+)$',
 }
 
+        
 def parse_command(command):
     print(f"\033[93mParsing command: {command}\033[0m")  # Yellow for debug statements
     for action, pattern in patterns.items():
@@ -51,6 +54,17 @@ def parse_command(command):
                     'loop_name': match.group(1),
                     'segment_name': match.group(2)
                 }
+            elif action == 'link_segment':
+                 return {
+                    'action': 'link_segment',
+                    'segment_name': match.group(1),
+                    'loop_name': match.group(2),
+                    'foreign_segment': match.group(3),
+                    'foreign_loop': match.group(4)
+                }
+            
+
+
     print("\033[93mNo matching pattern found.\033[0m")  # Yellow for debug statements
     return None
 
@@ -67,14 +81,20 @@ def execute_command(parsed_command, database):
     try:
         if parsed_command['action'] == "create_loop":
             loop_name = parsed_command['loop_name']
-            if loop_name not in db_data:
-                db_data[loop_name] = {}
-                print(f"\033[92mLoop {loop_name} created.\033[0m")  # Green for user-visible text
-                database.save()
+            if loop_name in db_data:
+                print(f"\033[91mError: Loop '{loop_name}' already exists.\033[0m")  # Red for error messages
+                return  # Prevent duplicate loop creation
+            db_data[loop_name] = {}
+            print(f"\033[92mLoop {loop_name} created.\033[0m")  # Green for user-visible text
+            database.save()
+            
         elif parsed_command['action'] == "segment_loop":
             loop_name = parsed_command['loop_name']
             segment_name = parsed_command['segment_name']
             if loop_name in db_data:
+                if segment_name in db_data[loop_name]:
+                    print(f"\033[91mError: Segment '{segment_name}' already exists in Loop '{loop_name}'.\033[0m")  # Red for error messages
+                    return  # Prevent duplicate segment creation
                 db_data[loop_name][segment_name] = []
                 print(f"\033[92mSegment {segment_name} added to Loop {loop_name}.\033[0m")  # Green for user-visible text
                 database.save()
@@ -116,6 +136,23 @@ def execute_command(parsed_command, database):
                     print(f"\033[91mNo matching records found.\033[0m")  # Red for error messages
             else:
                 print(f"\033[91mLoop {loop_name} does not exist.\033[0m")  # Red for error messages
+        
+        elif parsed_command['action'] == "link_segment":
+            loop_name = parsed_command['loop_name']
+            segment_name = parsed_command['segment_name']
+            foreign_loop = parsed_command['foreign_loop']
+            foreign_segment = parsed_command['foreign_segment']
+    
+            if loop_name in db_data and foreign_loop in db_data:
+                if segment_name in db_data[loop_name] and foreign_segment in db_data[foreign_loop]:
+                    db_data[loop_name][segment_name] = db_data[foreign_loop][foreign_segment]
+                    print(f"\033[92mSegment '{segment_name}' in Loop '{loop_name}' linked to Segment '{foreign_segment}' in Loop '{foreign_loop}'.\033[0m")
+                    database.save()
+                else:
+                    print(f"\033[91mError: Segment '{segment_name}' or '{foreign_segment}' does not exist.\033[0m")
+            else:
+                print(f"\033[91mError: Loop '{loop_name}' or '{foreign_loop}' does not exist.\033[0m")
+
         
         elif parsed_command['action'] == "change_master":
             loop_name = parsed_command['loop_name']
