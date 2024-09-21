@@ -26,20 +26,15 @@ Welcome to the **Circular Loop Database Model**, where data is organized into in
 
 ## 🌌 **Command Guide**
 
-`FORGE LOOP <NAME>`  
-- creates a new loop with the specified name
-       
-`SEGMENT LOOP <LOOP NAME> INTO <SEGMENT NAME>`            
-- creates a segment with the name within the loop name specified
 
-`CRAFT "<DATA>" INTO <SEGEMENT NAME> IN <LOOP NAME>`    
-- inserts a value into the segment of the specified loop
-
-`CHANGE MASTER SEGMENT OF <LOOP NAME> TO <SEGMENT NAME>`
-- changes the master segment of the specified loop to the given segment
-          
-`LINK SEGMENT <SEGMENT NAME> IN <LOOP NAME> TO <SEGMENT NAME> IN <LOOP NAME>` 
-- links the specified segment of the specified loop to the given segment of the other loop                         
+| Command                                              | Description                                                  |
+|------------------------------------------------------|--------------------------------------------------------------|
+| `FORGE LOOP <NAME>`                                 | Creates a new loop with the specified name                  |
+| `SEGMENT LOOP <LOOP NAME> INTO <SEGMENT NAME>`     | Creates a segment with the name within the specified loop    |
+| `CRAFT "<DATA>" INTO <SEGMENT NAME> IN <LOOP NAME>` | Inserts a value into the segment of the specified loop       |
+| `CHANGE MASTER SEGMENT OF <LOOP NAME> TO <SEGMENT NAME>` | Changes the master segment of the specified loop to the given segment |
+| `LINK SEGMENT <SEGMENT NAME> IN <LOOP NAME> TO <SEGMENT NAME> IN <LOOP NAME>` | Links the specified segment of the specified loop to the given segment of the other loop |
+                      
 
 
 
