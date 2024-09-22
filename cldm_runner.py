@@ -14,8 +14,20 @@ patterns = {
     'change_master': r'^CHANGE MASTER SEGMENT OF (\w+) TO (\w+)$',
     'link_segment': r'^LINK SEGMENT (\w+) IN (\w+) TO (\w+) IN (\w+)$',
     'visualize': r'^VISUALIZE LOOP (\w+)$',
-    'destroy_database': r'^DESTROY DATABASE$'
+    'destroy_database': r'^DESTROY DATABASE$',
+    
+    # New custom retrieval commands
+    'basic_retrieval': r'^EXTRACT ENTRIES OF ([\w\s,]+) WITHIN (\w+)$',
+    'conditional_retrieval': r'^EXTRACT ENTRIES OF ([\w\s,]+) WITHIN (\w+) FILTER BY (\w+) MATCHES "([^"]+)"$',
+    'pattern_based_retrieval': r'^EXTRACT ENTRIES OF ([\w\s,]+) WITHIN (\w+) FILTER BY (\w+) RESEMBLES "([^"]+)"$',
+    'ordered_retrieval': r'^EXTRACT ENTRIES OF ([\w\s,]+) WITHIN (\w+) SORTED AS (\w+) (ASCENDING|DESCENDING)$',
+    'limiting_retrieval': r'^EXTRACT ENTRIES OF ([\w\s,]+) WITHIN (\w+) LIMIT TO (\d+) ENTRIES$',
+    'combined_conditions_retrieval': r'^EXTRACT ENTRIES OF ([\w\s,]+) WITHIN (\w+) FILTER BY (\w+) MATCHES "([^"]+)" AND (\w+) MATCHES "([^"]+)"$',
+    'unique_entry_retrieval': r'^EXTRACT DISTINCT ENTRIES OF ([\w\s,]+) WITHIN (\w+)$',
+    'counting_entries': r'^TALLY ENTRIES IN (\w+) WITHIN (\w+)$',
+    'aggregating_data': r'^COMBINE (SUM|GATHER MAXIMUM|GATHER MINIMUM|COLLECT) VALUES OF (\w+) WITHIN (\w+) FILTER BY (\w+) MATCHES "([^"]+)"$'
 }
+
 
         
 def parse_command(command):
@@ -72,6 +84,84 @@ def parse_command(command):
                 return {'action': 'destroy_database'}
 
             
+            # Basic retrieval
+            if action == 'basic_retrieval':
+                return {
+                    'action': 'basic_retrieval',
+                    'segments': match.group(1).strip().split(','),
+                    'loop_name': match.group(2)
+                }
+            # Conditional retrieval
+            elif action == 'conditional_retrieval':
+                return {
+                        'action': 'conditional_retrieval',
+                        'segments': match.group(1).strip().split(','),
+                        'loop_name': match.group(2),
+                        'filter_segment': match.group(3).strip(),
+                        'filter_value': match.group(4).strip('"')
+                        }
+
+            # Pattern-based retrieval
+            elif action == 'pattern_based_retrieval':
+                return {
+                    'action': 'pattern_based_retrieval',
+                    'segments': match.group(1).strip().split(','),
+                    'loop_name': match.group(2),
+                    'filter_segment': match.group(3),
+                    'pattern': match.group(4)
+                }
+            # Ordered retrieval
+            elif action == 'ordered_retrieval':
+                return {
+                    'action': 'ordered_retrieval',
+                    'segments': match.group(1).strip().split(','),
+                    'loop_name': match.group(2),
+                    'sort_segment': match.group(3),
+                    'order': match.group(4)
+                }
+            # Limiting retrieval
+            elif action == 'limiting_retrieval':
+                return {
+                    'action': 'limiting_retrieval',
+                    'segments': match.group(1).strip().split(','),
+                    'loop_name': match.group(2),
+                    'limit': int(match.group(3))
+                }
+            # Combined conditions retrieval
+            elif action == 'combined_conditions_retrieval':
+                return {
+                    'action': 'combined_conditions_retrieval',
+                    'segments': match.group(1).strip().split(','),
+                    'loop_name': match.group(2),
+                    'filter_segment1': match.group(3),
+                    'filter_value1': match.group(4),
+                    'filter_segment2': match.group(5),
+                    'filter_value2': match.group(6)
+                }
+            # Unique entry retrieval
+            elif action == 'unique_entry_retrieval':
+                return {
+                    'action': 'unique_entry_retrieval',
+                    'segments': match.group(1).strip().split(','),
+                    'loop_name': match.group(2)
+                }
+            # Counting entries
+            elif action == 'counting_entries':
+                return {
+                    'action': 'counting_entries',
+                    'segment': match.group(1),
+                    'loop_name': match.group(2)
+                }
+            # Aggregating data
+            elif action == 'aggregating_data':
+                return {
+                    'action': 'aggregating_data',
+                    'aggregation_type': match.group(1),
+                    'segment_name': match.group(2),
+                    'loop_name': match.group(3),
+                    'filter_segment': match.group(4),
+                    'filter_value': match.group(5)
+                }
 
 
     print("\033[93mNo matching pattern found.\033[0m")  # Yellow for debug statements
@@ -195,6 +285,208 @@ def execute_command(parsed_command, database):
                 print(f"\033[91mError: Loop '{loop_name}' does not exist in the database.\033[0m")
             database.save()
 
+
+        elif parsed_command['action'] == "basic_retrieval":
+            segments = [seg.strip() for seg in parsed_command['segments']]  # Ensure no leading/trailing spaces
+            loop_name = parsed_command['loop_name']
+
+            if loop_name in db_data:
+                results = {segment: db_data[loop_name].get(segment, []) for segment in segments}
+
+                print(f"Basic Retrieval Results for Loop '{loop_name}':")
+                for segment, values in results.items():
+                    if values:
+                        print(f"Segment {segment}: {', '.join(values)}")
+                    else:
+                        print(f"Segment {segment}: No entries found")
+            else:
+                print(f"\033[91mError: Loop '{loop_name}' does not exist.\033[0m")
+
+
+        elif parsed_command['action'] == "conditional_retrieval":
+            segments = parsed_command['segments']
+            loop_name = parsed_command['loop_name']
+            filter_segment = parsed_command['filter_segment']
+            filter_value = parsed_command['filter_value']
+        
+            if loop_name in db_data:
+                filtered_results = {}
+                if filter_segment.strip() in db_data[loop_name]:
+                    for segment in segments:
+                        segment = segment.strip()  # Remove any leading/trailing whitespaces
+                        if segment in db_data[loop_name]:
+                            filtered_results[segment] = [
+                                value for i, value in enumerate(db_data[loop_name][segment])
+                                if db_data[loop_name][filter_segment][i] == filter_value
+                            ]
+        
+                print(f"Conditional Retrieval Results for Loop '{loop_name}':")
+                for segment, values in filtered_results.items():
+                    print(f"Segment {segment}: {', '.join(values)}")
+            else:
+                print(f"\033[91mError: Loop '{loop_name}' does not exist.\033[0m")
+
+
+        elif parsed_command['action'] == "pattern_based_retrieval":
+            segments = parsed_command['segments']
+            loop_name = parsed_command['loop_name']
+            filter_segment = parsed_command['filter_segment']
+            pattern = parsed_command['pattern']
+
+            if loop_name in db_data:
+                filtered_results = {}
+
+                if filter_segment.strip() in db_data[loop_name]:
+                    regex = re.compile(pattern)  # Compile the regex pattern
+                    for segment in segments:
+                        segment = segment.strip()  # Clean any leading/trailing spaces
+                        if segment in db_data[loop_name]:
+                            filtered_results[segment] = [
+                                value for value in db_data[loop_name][segment]
+                                if regex.match(value)
+                            ]
+
+                print(f"Pattern-Based Retrieval Results for Loop '{loop_name}':")
+                for segment, values in filtered_results.items():
+                    if values:
+                        print(f"Segment {segment}: {', '.join(values)}")
+                    else:
+                        print(f"Segment {segment}: No entries match the pattern")
+            else:
+                print(f"\033[91mError: Loop '{loop_name}' does not exist.\033[0m")
+
+
+
+        elif parsed_command['action'] == "ordered_retrieval":
+            segments = [segment.strip() for segment in parsed_command['segments']]  # Strip whitespace
+            loop_name = parsed_command['loop_name']
+            sort_segment = parsed_command['sort_segment'].strip()  # Strip whitespace
+            order = parsed_command['order']
+
+            if loop_name in db_data and sort_segment in db_data[loop_name]:
+                # Create ordered_results dictionary for the segments
+                ordered_results = {segment: db_data[loop_name].get(segment, []) for segment in segments}
+
+                # Get sorted indices based on the values in the sort_segment
+                sorted_indices = sorted(
+                    range(len(db_data[loop_name][sort_segment])),
+                    key=lambda i: db_data[loop_name][sort_segment][i],
+                    reverse=(order.lower() == "descending")
+                )
+
+                print(f"Ordered Retrieval Results for Loop '{loop_name}':")
+                for segment in segments:
+                    if segment in ordered_results:
+                        # Collect values based on sorted indices
+                        sorted_values = [ordered_results[segment][i] for i in sorted_indices if i < len(ordered_results[segment])]
+                        print(f"Segment {segment}: {', '.join(sorted_values)}")
+                    else:
+                        print(f"\033[91mError: Segment '{segment}' does not exist in the loop '{loop_name}'.\033[0m")
+            else:
+                print(f"\033[91mError: Loop '{loop_name}' or sorting segment '{sort_segment}' does not exist.\033[0m")
+
+
+
+        elif parsed_command['action'] == "limiting_retrieval":
+            segments = parsed_command['segments']
+            loop_name = parsed_command['loop_name']
+            limit = parsed_command['limit']
+
+            if loop_name in db_data:
+                results = {segment: db_data[loop_name].get(segment, [])[:limit] for segment in segments}
+                print(f"Limiting Retrieval Results for Loop '{loop_name}':")
+                for segment, values in results.items():
+                    print(f"Segment {segment}: {', '.join(values)}")
+            else:
+                print(f"\033[91mError: Loop '{loop_name}' does not exist.\033[0m")
+
+
+        elif parsed_command['action'] == "combined_conditions_retrieval":
+            segments = [segment.strip() for segment in parsed_command['segments']]  # Strip whitespace
+            loop_name = parsed_command['loop_name']
+            filter_segment1 = parsed_command['filter_segment1'].strip()
+            filter_value1 = parsed_command['filter_value1'].strip()
+            filter_segment2 = parsed_command['filter_segment2'].strip()
+            filter_value2 = parsed_command['filter_value2'].strip()
+
+            if loop_name in db_data:
+                combined_results = {segment: [] for segment in segments}
+
+                # Iterate over the range of entries in the loop's segments
+                for i in range(len(db_data[loop_name][filter_segment1])):
+                    # Check the combined conditions for both filters
+                    if (db_data[loop_name][filter_segment1][i] == filter_value1 and
+                        db_data[loop_name][filter_segment2][i] == filter_value2):
+
+                        # Collect the filtered results for the specified segments
+                        for segment in segments:
+                            if segment in db_data[loop_name]:
+                                combined_results[segment].append(db_data[loop_name][segment][i])
+
+                # Display the combined results
+                print(f"Combined Conditions Retrieval Results for Loop '{loop_name}':")
+                for segment, values in combined_results.items():
+                    print(f"Segment {segment}: {', '.join(values) if values else 'No matching entries'}")
+            else:
+                print(f"\033[91mError: Loop '{loop_name}' does not exist.\033[0m")
+
+
+        elif parsed_command['action'] == "unique_entry_retrieval":
+            segments = parsed_command['segments']
+            loop_name = parsed_command['loop_name']
+
+            if loop_name in db_data:
+                results = {segment: list(set(db_data[loop_name].get(segment, []))) for segment in segments}
+                print(f"Unique Entry Retrieval Results for Loop '{loop_name}':")
+                for segment, values in results.items():
+                    print(f"Segment {segment}: {', '.join(values)}")
+            else:
+                print(f"\033[91mError: Loop '{loop_name}' does not exist.\033[0m")
+
+
+        elif parsed_command['action'] == "counting_entries":
+            segment = parsed_command['segment']
+            loop_name = parsed_command['loop_name']
+
+            if loop_name in db_data and segment in db_data[loop_name]:
+                count = len(db_data[loop_name][segment])
+                print(f"Total entries in segment '{segment}' within loop '{loop_name}': {count}")
+            else:
+                print(f"\033[91mError: Loop '{loop_name}' or Segment '{segment}' does not exist.\033[0m")
+
+
+        elif parsed_command['action'] == "aggregating_data":
+            aggregation_type = parsed_command['aggregation_type'].strip()
+            segment_name = parsed_command['segment_name'].strip()
+            loop_name = parsed_command['loop_name'].strip()
+            filter_segment = parsed_command['filter_segment'].strip()
+            filter_value = parsed_command['filter_value'].strip().strip('"')
+        
+            if loop_name in db_data and segment_name in db_data[loop_name] and filter_segment in db_data[loop_name]:
+                segment_values = [
+                    float(db_data[loop_name][segment_name][i])
+                    for i in range(len(db_data[loop_name][filter_segment]))
+                    if db_data[loop_name][filter_segment][i] == filter_value
+                ]
+        
+                if aggregation_type.lower() == "sum":
+                    result = sum(segment_values)
+                elif aggregation_type.lower() == "gather maximum":
+                    result = max(segment_values) if segment_values else "No matching values"
+                elif aggregation_type.lower() == "gather minimum":
+                    result = min(segment_values) if segment_values else "No matching values"
+                elif aggregation_type.lower() == "collect":
+                    result = segment_values
+        
+                if result is not None:
+                    print(f"{aggregation_type} of {segment_name} within '{loop_name}': {result}")
+            else:
+                print(f"\033[91mError: Loop '{loop_name}', Segment '{segment_name}', or Filter Segment '{filter_segment}' does not exist.\033[0m")
+
+
+
+
+
         elif parsed_command['action'] == "change_master":
             loop_name = parsed_command['loop_name']
             segment_name = parsed_command['segment_name']
@@ -218,6 +510,7 @@ def execute_command(parsed_command, database):
     except IndexError as e:
         print(f"\033[91mError: {str(e)}\033[0m")  # Red for error messages
         print(f"\033[91mFailed to execute command: {parsed_command}\033[0m")  # Red for error messages
+
 
 
 

@@ -6,10 +6,60 @@
 << CRAFT "Bob" INTO Names IN CustomerData
 << CRAFT "Order2" INTO Orders IN CustomerData
 << VISUALIZE LOOP CustomerData
-<< DESTROY DATABASE
+>> DESTROY DATABASE
 
 
->> FORGE LOOP CustomerData
->> SEGMENT LOOP CustomerData INTO Names
->> CRAFT "Alice" INTO Names IN CustomerData
->> VISUALIZE LOOP CustomerData
+<< FORGE LOOP CustomerData
+<< SEGMENT LOOP CustomerData INTO Names
+<< CRAFT "Alice" INTO Names IN CustomerData
+<< VISUALIZE LOOP CustomerData
+
+
+<< ADVANCE CODE TESTS 
+
+<< Create a Loop and Segments 
+>> FORGE LOOP CustomerOrders
+>> SEGMENT LOOP CustomerOrders INTO Customers
+>> SEGMENT LOOP CustomerOrders INTO Orders
+>> SEGMENT LOOP CustomerOrders INTO OrderAmounts
+
+<< Insert Values into Segments 
+>> CRAFT "Alice" INTO Customers IN CustomerOrders
+>> CRAFT "Bob" INTO Customers IN CustomerOrders
+>> CRAFT "Charlie" INTO Customers IN CustomerOrders
+>> CRAFT "Order001" INTO Orders IN CustomerOrders
+>> CRAFT "Order002" INTO Orders IN CustomerOrders
+>> CRAFT "Order003" INTO Orders IN CustomerOrders
+>> CRAFT "250" INTO OrderAmounts IN CustomerOrders
+>> CRAFT "400" INTO OrderAmounts IN CustomerOrders
+>> CRAFT "150" INTO OrderAmounts IN CustomerOrders
+
+<< Change Master Segment 
+>> CHANGE MASTER SEGMENT OF CustomerOrders TO Customers
+
+<< Test Basic Retrieval Command 
+>> EXTRACT ENTRIES OF Customers, Orders WITHIN CustomerOrders
+
+<< Test Conditional Retrieval Command 
+>> EXTRACT ENTRIES OF Orders, OrderAmounts WITHIN CustomerOrders FILTER BY Customers MATCHES "Alice"
+
+<< Test Pattern-Based Retrieval Command 
+>> EXTRACT ENTRIES OF Customers WITHIN CustomerOrders FILTER BY Customers RESEMBLES "^C.*"
+
+<< Test Ordered Retrieval Command 
+>> EXTRACT ENTRIES OF Orders, OrderAmounts WITHIN CustomerOrders SORTED AS OrderAmounts ASCENDING
+
+<< Test Limiting Retrieval Command 
+>> EXTRACT ENTRIES OF Orders WITHIN CustomerOrders LIMIT TO 2 ENTRIES
+
+<< Test Combined Conditions Retrieval Command 
+>> EXTRACT ENTRIES OF Orders, OrderAmounts WITHIN CustomerOrders FILTER BY Customers MATCHES "Alice" AND OrderAmounts MATCHES "250"
+
+<< Test Unique Entry Retrieval Command 
+>> EXTRACT DISTINCT ENTRIES OF Customers WITHIN CustomerOrders
+
+<< Test Counting Entries Command 
+>> TALLY ENTRIES IN Orders WITHIN CustomerOrders
+
+<< Test Aggregating Data Command 
+>> COMBINE SUM VALUES OF OrderAmounts WITHIN CustomerOrders FILTER BY Customers MATCHES "Alice"
