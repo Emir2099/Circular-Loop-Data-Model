@@ -44,7 +44,7 @@ Welcome to the **Circular Loop Database Model**, where data is organized into in
 | `EXTRACT ENTRIES OF <SEGMENT NAME> WITHIN <SEGMENT NAME> FILTER BY <SEGMENT NAME> MATCHES <"DATA"> AND <SEGMENT NAME> MATCHES <"DATA">` | Combined Conditional Retrieval |
 | `EXTRACT DISTINCT ENTRIES OF <SEGMENT NAME> WITHIN <LOOP NAME>` | Unique Entry Retrieval                              |
 | `TALLY ENTRIES IN <SEGMENT NAME> WITHIN <LOOP NAME>`             | Count Entires                                            |
-| `COMBINE <SUM/GATHER MAXIMUM/GATHER MINIMUM/COLLECT> VALUES OF <SEGMENT NAME> WITHIN <LOOP NAME> FILTER BY <SEGMENT NAME> MATCHES <"DATA">` | Filtered Data aggregation    |
+| `COMBINE <SUM/GATHER MAXIMUM/GATHER MINIMUM/COLLECT> VALUES OF <SEGMENT NAME> WITHIN <LOOP NAME> ?(optional)FILTER BY <SEGMENT NAME> MATCHES <"DATA">` | Filtered Data aggregation    |
 
 
 

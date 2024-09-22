@@ -63,3 +63,5 @@
 
 << Test Aggregating Data Command 
 >> COMBINE SUM VALUES OF OrderAmounts WITHIN CustomerOrders FILTER BY Customers MATCHES "Alice"
+>> COMBINE SUM VALUES OF OrderAmounts WITHIN CustomerOrders
+>> COMBINE COLLECT VALUES OF OrderAmounts WITHIN CustomerOrders

@@ -25,7 +25,8 @@ patterns = {
     'combined_conditions_retrieval': r'^EXTRACT ENTRIES OF ([\w\s,]+) WITHIN (\w+) FILTER BY (\w+) MATCHES "([^"]+)" AND (\w+) MATCHES "([^"]+)"$',
     'unique_entry_retrieval': r'^EXTRACT DISTINCT ENTRIES OF ([\w\s,]+) WITHIN (\w+)$',
     'counting_entries': r'^TALLY ENTRIES IN (\w+) WITHIN (\w+)$',
-    'aggregating_data': r'^COMBINE (SUM|GATHER MAXIMUM|GATHER MINIMUM|COLLECT) VALUES OF (\w+) WITHIN (\w+) FILTER BY (\w+) MATCHES "([^"]+)"$'
+    'aggregating_data': r'^COMBINE (SUM|GATHER MAXIMUM|GATHER MINIMUM|COLLECT) VALUES OF (\w+) WITHIN (\w+)(?: FILTER BY (\w+) MATCHES "([^"]+)")?$'
+
 }
 
 
@@ -459,16 +460,31 @@ def execute_command(parsed_command, database):
             aggregation_type = parsed_command['aggregation_type'].strip()
             segment_name = parsed_command['segment_name'].strip()
             loop_name = parsed_command['loop_name'].strip()
-            filter_segment = parsed_command['filter_segment'].strip()
-            filter_value = parsed_command['filter_value'].strip().strip('"')
-        
-            if loop_name in db_data and segment_name in db_data[loop_name] and filter_segment in db_data[loop_name]:
-                segment_values = [
-                    float(db_data[loop_name][segment_name][i])
-                    for i in range(len(db_data[loop_name][filter_segment]))
-                    if db_data[loop_name][filter_segment][i] == filter_value
-                ]
-        
+            
+            # Check if 'filter_segment' and 'filter_value' exist in the parsed command
+            filter_segment = parsed_command.get('filter_segment', None)
+            filter_value = parsed_command.get('filter_value', None)
+            
+            if loop_name in db_data and segment_name in db_data[loop_name]:
+                # If a filter is provided
+                if filter_segment and filter_value:
+                    filter_value = filter_value.strip('"')
+                    if filter_segment in db_data[loop_name]:
+                        segment_values = [
+                            float(db_data[loop_name][segment_name][i])
+                            for i in range(len(db_data[loop_name][filter_segment]))
+                            if db_data[loop_name][filter_segment][i] == filter_value
+                        ]
+                    else:
+                        print(f"\033[91mError: Filter Segment '{filter_segment}' does not exist within '{loop_name}'.\033[0m")
+                        return
+                else:
+                    # If no filter is provided, collect all values
+                    segment_values = [
+                        float(value) for value in db_data[loop_name][segment_name]
+                    ]
+                
+                # Perform the aggregation based on the type
                 if aggregation_type.lower() == "sum":
                     result = sum(segment_values)
                 elif aggregation_type.lower() == "gather maximum":
@@ -477,11 +493,12 @@ def execute_command(parsed_command, database):
                     result = min(segment_values) if segment_values else "No matching values"
                 elif aggregation_type.lower() == "collect":
                     result = segment_values
-        
+                
                 if result is not None:
                     print(f"{aggregation_type} of {segment_name} within '{loop_name}': {result}")
             else:
-                print(f"\033[91mError: Loop '{loop_name}', Segment '{segment_name}', or Filter Segment '{filter_segment}' does not exist.\033[0m")
+                print(f"\033[91mError: Loop '{loop_name}' or Segment '{segment_name}' does not exist.\033[0m")
+
 
 
 
