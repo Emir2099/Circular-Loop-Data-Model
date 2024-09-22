@@ -13,6 +13,8 @@ patterns = {
     'craft': r'^CRAFT "([^"]+)" INTO (\w+) IN (\w+)$',
     'change_master': r'^CHANGE MASTER SEGMENT OF (\w+) TO (\w+)$',
     'link_segment': r'^LINK SEGMENT (\w+) IN (\w+) TO (\w+) IN (\w+)$',
+    'visualize': r'^VISUALIZE LOOP (\w+)$',
+    'destroy_database': r'^DESTROY DATABASE$'
 }
 
         
@@ -62,6 +64,13 @@ def parse_command(command):
                     'foreign_segment': match.group(3),
                     'foreign_loop': match.group(4)
                 }
+                
+            elif action == 'visualize':
+                return {'action': 'visualize_loop', 'loop_name': match.group(1)}  # Use group(1) here
+            
+            elif action == 'destroy_database':
+                return {'action': 'destroy_database'}
+
             
 
 
@@ -153,7 +162,39 @@ def execute_command(parsed_command, database):
             else:
                 print(f"\033[91mError: Loop '{loop_name}' or '{foreign_loop}' does not exist.\033[0m")
 
+        elif parsed_command['action'] == "destroy_database":
+            database.clear()  # Clear all data in the database
+            print("\033[92mDatabase cleared successfully.\033[0m")  # Green for user-visible text
+            
+        elif parsed_command['action'] == "visualize_loop":
+            loop_name = parsed_command['loop_name']
+            if loop_name in db_data:
+                loop_data = db_data[loop_name]
         
+                # Identify the actual master segment
+                master_segment = loop_data.get('MasterSegment', None)
+
+                # Print loop details
+                segment_names = [seg for seg in loop_data.keys() if seg != 'MasterSegment']
+                print(f"\033[92mLoop: {loop_name}\033[0m")
+                print(f"\033[94mSegments: {', '.join(segment_names)}\033[0m")  # Display segment names in blue
+        
+                print("\nSegment Entries:")
+                for segment, values in loop_data.items():
+                    # Skip the 'MasterSegment' entry itself from being displayed as a segment
+                    if segment == 'MasterSegment':
+                        continue
+
+                    # Display the segment name with (MS) suffix if it's the master segment
+                    segment_display_name = f"{segment} (MS)" if segment == master_segment else segment
+                    print(f"\033[96mSegment: {segment_display_name}\033[0m")
+                    for value in values:
+                        print(f"  - {value}")
+                    print("-" * 40)  # Divider for better readability
+            else:
+                print(f"\033[91mError: Loop '{loop_name}' does not exist in the database.\033[0m")
+            database.save()
+
         elif parsed_command['action'] == "change_master":
             loop_name = parsed_command['loop_name']
             segment_name = parsed_command['segment_name']
@@ -180,6 +221,7 @@ def execute_command(parsed_command, database):
 
 
 
+
 def check_master_segment(loop_data):
     # Check if any segment has unique values
     current_master = loop_data.get('MasterSegment', None)
@@ -187,19 +229,21 @@ def check_master_segment(loop_data):
     new_master_segment = None
 
     for segment_name, values in loop_data.items():
-        if segment_name != 'MasterSegment':
-            if len(values) > max_segment_length and len(values) == len(set(values)):
+        # Ensure we're not creating a new 'MasterSegment' entry
+        if segment_name != 'MasterSegment' and len(values) == len(set(values)):
+            if len(values) > max_segment_length:
                 new_master_segment = segment_name
                 max_segment_length = len(values)
 
+    # Set the master segment if it hasn't been set or has changed
     if new_master_segment and new_master_segment != current_master:
         loop_data['MasterSegment'] = new_master_segment
-        print(f"\033[92mMaster Segment selected: {new_master_segment}\033[0m")  # Green for user-visible text
+        print(f"\033[92mMaster Segment selected: {new_master_segment}\033[0m")
     elif not new_master_segment and not current_master:
-        # Create a new Master Segment with unique values
-        max_length = max_segment_length
-        loop_data['MasterSegment'] = list(map(str, range(1, max_length + 1)))
-        print(f"\033[92mNew Master Segment created with unique values: {loop_data['MasterSegment']}\033[0m")  # Green for user-visible text
+        loop_data['MasterSegment'] = list(map(str, range(1, max_segment_length + 1)))
+        print(f"\033[92mNew Master Segment created with unique values: {loop_data['MasterSegment']}\033[0m")
+
+
 
 
 def execute_file_commands(cldm_file_path, db_file_path):

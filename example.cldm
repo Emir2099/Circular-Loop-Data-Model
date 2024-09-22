@@ -1,13 +1,15 @@
+<< FORGE LOOP CustomerData
+<< SEGMENT LOOP CustomerData INTO Names
+<< SEGMENT LOOP CustomerData INTO Orders
+<< CRAFT "Alice" INTO Names IN CustomerData
+<< CRAFT "Order1" INTO Orders IN CustomerData
+<< CRAFT "Bob" INTO Names IN CustomerData
+<< CRAFT "Order2" INTO Orders IN CustomerData
+<< VISUALIZE LOOP CustomerData
+<< DESTROY DATABASE
+
+
 >> FORGE LOOP CustomerData
 >> SEGMENT LOOP CustomerData INTO Names
->> SEGMENT LOOP CustomerData INTO Orders
->> SEGMENT LOOP CustomerData INTO Orders2
->> SEGMENT LOOP CustomerData INTO Orders3
->> SEGMENT LOOP CustomerData INTO Orders4
->> FORGE LOOP CustomerData
->> FORGE LOOP OrderData
->> SEGMENT LOOP OrderData INTO Orders2
->> LINK SEGMENT Orders2 IN CustomerData TO Orders2 IN OrderData
 >> CRAFT "Alice" INTO Names IN CustomerData
->> CRAFT "Order1" INTO Orders IN CustomerData
-
+>> VISUALIZE LOOP CustomerData

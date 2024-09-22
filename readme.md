@@ -34,6 +34,8 @@ Welcome to the **Circular Loop Database Model**, where data is organized into in
 | `CRAFT "<DATA>" INTO <SEGMENT NAME> IN <LOOP NAME>` | Inserts a value into the segment of the specified loop       |
 | `CHANGE MASTER SEGMENT OF <LOOP NAME> TO <SEGMENT NAME>` | Changes the master segment of the specified loop to the given segment |
 | `LINK SEGMENT <SEGMENT NAME> IN <LOOP NAME> TO <SEGMENT NAME> IN <LOOP NAME>` | Links the specified segment of the specified loop to the given segment of the other loop |
+| `VIZUALIZE LOOP <LOOP NAME>`                          | Provides details about the loop                             |
+| `DESTROY DATABASE`                                    | Removes everything from the database                        |
                       
 
 
