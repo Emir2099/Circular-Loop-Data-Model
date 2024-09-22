@@ -36,9 +36,15 @@ Welcome to the **Circular Loop Database Model**, where data is organized into in
 | `LINK SEGMENT <SEGMENT NAME> IN <LOOP NAME> TO <SEGMENT NAME> IN <LOOP NAME>` | Links the specified segment of the specified loop to the given segment of the other loop |
 | `VIZUALIZE LOOP <LOOP NAME>`                          | Provides details about the loop                             |
 | `DESTROY DATABASE`                                    | Removes everything from the database                        |
-                      
-
-
+| `EXTRACT ENTRIES OF <SEGMENT NAME> WITHIN <LOOP NAME>` | Basic Retrieval                                            |
+| `EXTRACT ENTRIES OF <SEGMENT NAME> WITHIN <LOOP NAME> FILTER BY <SEGMENT NAME> MATCHES <"DATA">` | Conditional Retrieval |
+| `EXTRACT ENTRIES OF <SEGMENT NAME> WITHIN <LOOP NAME> FILTER BY <SEGEMENT NAME> RESEMBLES "^<CHARACTER>.*"` | Pattern Based Retrieval |
+| `EXTRACT ENTRIES OF <SEGMENT NAME> WITHIN <LOOP NAME> SORTED AS <SEGMENT NAME> <ASCENDING / DESCENDING> ` | Ordered Retrieval |
+| `EXTRACT ENTRIES OF <SEGMENT NAME> WITHIN <LOOP NAME> LIMIT TO <INT> ENTRIES` | Limiting Retrieval                            |
+| `EXTRACT ENTRIES OF <SEGMENT NAME> WITHIN <SEGMENT NAME> FILTER BY <SEGMENT NAME> MATCHES <"DATA"> AND <SEGMENT NAME> MATCHES <"DATA">` | Combined Conditional Retrieval |
+| `EXTRACT DISTINCT ENTRIES OF <SEGMENT NAME> WITHIN <LOOP NAME>` | Unique Entry Retrieval                              |
+| `TALLY ENTRIES IN <SEGMENT NAME> WITHIN <LOOP NAME>`             | Count Entires                                            |
+| `COMBINE <SUM/GATHER MAXIMUM/GATHER MINIMUM/COLLECT> VALUES OF <SEGMENT NAME> WITHIN <LOOP NAME> FILTER BY <SEGMENT NAME> MATCHES <"DATA">` | Filtered Data aggregation    |
 
 
 
