@@ -190,12 +190,17 @@ def execute_command(parsed_command, database):# Create Database Command
     # Create Database Command
     if parsed_command['action'] == 'create_database':
         db_file_path = parsed_command['database_name']
-        if database is None:  # Initialize the database if not already created/loaded
-            database = CustomDatabase(db_file_path)
-        database.set_database(db_file_path)
-        database.save()  # Save the newly created database immediately
-        print(f"Database '{db_file_path}' created and loaded for use.")
-        return database
+    
+    # Check if the database file already exists
+        if os.path.exists(db_file_path):
+            print(f"\033[91mError: Database '{db_file_path}' already exists.\033[0m")
+        else:
+            if database is None:  # Initialize the database if not already created/loaded
+                database = CustomDatabase(db_file_path)
+            database.set_database(db_file_path)
+            database.save()  # Save the newly created database immediately
+            print(f"Database '{db_file_path}' created and loaded for use.")
+            return database
 
     # Load Database Command
     elif parsed_command['action'] == 'load_database':
