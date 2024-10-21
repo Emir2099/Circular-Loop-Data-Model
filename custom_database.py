@@ -1,8 +1,13 @@
 import bson
 import os
+from filelock import FileLock
 
 class CustomDatabase:
-    def __init__(self, db_file_path):
+    def __init__(self, db_file_path=None):
+        self.db_file_path = db_file_path
+        self.data = self.load() if db_file_path else {}
+
+    def set_database(self, db_file_path):
         self.db_file_path = db_file_path
         self.data = self.load()
 
@@ -24,6 +29,9 @@ class CustomDatabase:
             return {}
 
     def save(self):
+        if not self.db_file_path:
+            print("No database file path specified.")
+            return
         try:
             with open(self.db_file_path, 'wb') as file:
                 file.write(bson.dumps(self.data))
