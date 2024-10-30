@@ -6,8 +6,10 @@
 << CRAFT "Bob" INTO Names IN CustomerData
 << CRAFT "Order2" INTO Orders IN CustomerData
 << VISUALIZE LOOP CustomerData
->> DESTROY DATABASE
+<< DESTROY DATABASE
 
+>> CREATE DATABASE my_new_database.bson
+>> LOAD DATABASE my_new_database.bson
 
 << FORGE LOOP CustomerData
 << SEGMENT LOOP CustomerData INTO Names
@@ -65,3 +67,19 @@
 >> COMBINE SUM VALUES OF OrderAmounts WITHIN CustomerOrders FILTER BY Customers MATCHES "Alice"
 >> COMBINE SUM VALUES OF OrderAmounts WITHIN CustomerOrders
 >> COMBINE COLLECT VALUES OF OrderAmounts WITHIN CustomerOrders
+
+
+>> FORGE LOOP TestLoop
+>> SEGMENT LOOP TestLoop INTO TestSegment
+>> DISMANTLE LOOP TestLoop
+
+>> FORGE LOOP AnotherLoop
+>> SEGMENT LOOP AnotherLoop INTO RemovableSegment
+>> REMOVE SEGMENT RemovableSegment FROM LOOP AnotherLoop
+
+>> FORGE LOOP DataLoop
+>> SEGMENT LOOP DataLoop INTO Names
+>> CRAFT "Alice" INTO Names IN DataLoop
+>> CRAFT "Bob" INTO Names IN DataLoop
+>> REMOVE "Alice" FROM SEGMENT Names IN LOOP DataLoop
+

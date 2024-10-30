@@ -1,11 +1,11 @@
 import os
 import re
 import sys
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import bson
 from custom_database import CustomDatabase 
 import time
-import mplcursors
+# import mplcursors
 from filelock import FileLock
 
 # Define regex patterns for each command type
@@ -31,7 +31,11 @@ patterns = {
     
     #database creation
     'create_database': r'^CREATE DATABASE (\w+\.bson)$',   # Create new database
-    'load_database': r'^LOAD DATABASE (\w+\.bson)$'        # Load existing database
+    'load_database': r'^LOAD DATABASE (\w+\.bson)$',        # Load existing database
+    
+    'dismantle_loop': r'^DISMANTLE LOOP (\w+)$',  # Dismantle loop pattern
+    'remove_segment': r'^REMOVE SEGMENT (\w+) FROM LOOP (\w+)$',  # Remove segment from loop pattern
+    'remove_data': r'^REMOVE "([^"]+)" FROM SEGMENT (\w+) IN LOOP (\w+)$'  # Remove data from segment pattern
 }
 
 
@@ -97,6 +101,12 @@ def parse_command(command):
             elif action == 'destroy_database':
                 return {'action': 'destroy_database'}
 
+            elif action == 'dismantle_loop':
+                return {'action': 'dismantle_loop', 'loop_name': match.group(1)}
+            elif action == 'remove_segment':
+                return {'action': 'remove_segment', 'segment_name': match.group(1), 'loop_name': match.group(2)}
+            elif action == 'remove_data':
+                return {'action': 'remove_data', 'data': match.group(1), 'segment_name': match.group(2), 'loop_name': match.group(3)}
             
             # Basic retrieval
             if action == 'basic_retrieval':
@@ -219,7 +229,7 @@ def execute_command(parsed_command, database):# Create Database Command
         return database
 
     # Other commands require a database to be loaded first
-    elif parsed_command['action'] in [ 'forge','create_loop','segment_loop','craft','change_master','link_segment','visualize','destroy_database','basic_retrieval','conditional_retrieval','pattern_based_retrieval','ordered_retrieval','limiting_retrieval','combined_conditions_retrieval','unique_entry_retrieval','counting_entries','aggregating_data']:
+    elif parsed_command['action'] in [ 'forge','create_loop','segment_loop','craft','change_master','link_segment','dismantle_loop','remove_segment','remove_data','visualize','destroy_database','basic_retrieval','conditional_retrieval','pattern_based_retrieval','ordered_retrieval','limiting_retrieval','combined_conditions_retrieval','unique_entry_retrieval','counting_entries','aggregating_data']:
         if database is None:  # No database loaded, show an error
             print("\033[91mError: No database loaded. Load or create a database first.\033[0m")
             return None  # Exit the function without execution
@@ -366,7 +376,56 @@ def execute_command(parsed_command, database):# Create Database Command
                     print(f"\033[91mError: Loop '{loop_name}' does not exist in the database.\033[0m")
                     return database
 
+            # Dismantle Loop Command
+            elif parsed_command['action'] == 'dismantle_loop':
+                loop_name = parsed_command['loop_name']
+                if loop_name in database.data:
+                    del database.data[loop_name]
+                    database.save()
+                    print(f"\033[92mSegment Loop '{loop_name}' dismantled.\033[0m")
+                    return database
+                else:
+                    print(f"\033[91mError: Loop '{loop_name}' does not exist.\033[0m")
+                    return database
 
+            # Remove Segment from Loop Command
+            elif parsed_command['action'] == 'remove_segment':
+                segment_name = parsed_command['segment_name']
+                loop_name = parsed_command['loop_name']
+                if loop_name in database.data and segment_name in database.data[loop_name]:
+                    del database.data[loop_name][segment_name]
+                    database.save()
+                    print(f"\033[92mSegment '{segment_name}' removed from loop '{loop_name}'.\033[0m")
+                    return database
+                elif loop_name not in database.data:
+                    print(f"\033[91mError: Loop '{loop_name}' does not exist.\033[0m")
+                    return database
+                else:
+                    print(f"\033[91mError: Segment '{segment_name}' does not exist in loop '{loop_name}'.\033[0m")
+                    return database
+
+            # Remove Data from Segment in Loop Command
+            elif parsed_command['action'] == 'remove_data':
+                data_to_remove = parsed_command['data']
+                segment_name = parsed_command['segment_name']
+                loop_name = parsed_command['loop_name']
+                if loop_name in database.data and segment_name in database.data[loop_name]:
+                    segment_data = database.data[loop_name][segment_name]
+                    if data_to_remove in segment_data:
+                        segment_data.remove(data_to_remove)
+                        database.save()
+                        print(f"\033[92mData '{data_to_remove}' removed from segment '{segment_name}' in loop '{loop_name}'.\033[0m")
+                        return database  
+                    else:
+                        print(f"\033[91mError: Data '{data_to_remove}' not found in segment '{segment_name}' in loop '{loop_name}'.\033[0m")
+                        return database
+                elif loop_name not in database.data:
+                    print(f"\033[91mError: Loop '{loop_name}' does not exist.\033[0m")
+                    return database
+                else:
+                    print(f"\033[91mError: Segment '{segment_name}' does not exist in loop '{loop_name}'.\033[0m")
+                    return database
+    
             elif parsed_command['action'] == "basic_retrieval":
                 segments = [seg.strip() for seg in parsed_command['segments']]  # Ensure no leading/trailing spaces
                 loop_name = parsed_command['loop_name']
