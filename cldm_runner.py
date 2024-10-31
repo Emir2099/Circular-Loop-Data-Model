@@ -288,19 +288,25 @@ def execute_command(parsed_command, database):# Create Database Command
                 print(f"\033[93mCrafting value {value} in segment {segment_name} in Loop {loop_name}.\033[0m")  # Debug
 
                 if loop_name in db_data and segment_name in db_data[loop_name]:
+                    if segment_name != 'DefaultMasterSegment':
                 # Check if crafting into the master segment and enforce uniqueness
-                    is_master = (segment_name == db_data[loop_name].get('MasterSegment'))
+                        is_master = (segment_name == db_data[loop_name].get('MasterSegment'))
         
-                    if is_master and value in db_data[loop_name][segment_name]:
-                        print(f"\033[91mDuplicate value '{value}' detected in Master Segment '{segment_name}'. Reassigning master.\033[0m")
+                        if is_master and value in db_data[loop_name][segment_name]:
+                            print(f"\033[91mDuplicate value '{value}' detected in Master Segment '{segment_name}'. Reassigning master.\033[0m")
                         # Add the value then reassign the master if duplicates exist
-                        db_data[loop_name][segment_name].append(value)
-                        check_master_segment(db_data[loop_name])  # Reassign master if needed
-                    else:
+                            db_data[loop_name][segment_name].append(value)
+                            check_master_segment(db_data[loop_name])  # Reassign master if needed
+                        else:
                         # Craft value normally
-                        db_data[loop_name][segment_name].append(value)
-                        print(f"\033[92mValue '{value}' added to Segment '{segment_name}' in Loop '{loop_name}'.\033[0m")  # Green for user-visible text
+                            db_data[loop_name][segment_name].append(value)
+                            print(f"\033[92mValue '{value}' added to Segment '{segment_name}' in Loop '{loop_name}'.\033[0m")  # Green for user-visible text
         
+                        # Revalidate the master segment on every craft operation
+                            check_master_segment(db_data[loop_name])
+                    else:
+                        print(f"\033[91mCrafting into Master Segment is not allowed.\033[0m")  # Error messages
+                        return database
                     # Save the database state
                     database.save()
                     return database
@@ -682,19 +688,16 @@ def execute_command(parsed_command, database):# Create Database Command
             elif parsed_command['action'] == "change_master":
                 loop_name = parsed_command['loop_name']
                 segment_name = parsed_command['segment_name']
-                print(f"\033[93mAttempting to change master segment to {segment_name} for loop {loop_name}\033[0m")  # Debug message
+        
+                print(f"\033[93mAttempting to change master segment to {segment_name} for loop {loop_name}\033[0m")
 
                 if loop_name in db_data:
                     segment_values = db_data[loop_name].get(segment_name, [])
-
-                    # Check if the selected segment has unique values
                     if len(segment_values) == len(set(segment_values)):
-                    # Set the new master segment only if unique
                         db_data[loop_name]['MasterSegment'] = segment_name
                         print(f"\033[92mMaster Segment changed to {segment_name} for Loop {loop_name}.\033[0m")
-                        database.save()  # Save changes as the new master has been set
+                        database.save()
                     else:
-                    # Keep the current master segment if it exists
                         current_master = db_data[loop_name].get('MasterSegment', 'None')
                         if current_master == 'None':
                             print(f"\033[91mError: Segment '{segment_name}' contains non-unique values and cannot be used as the Master Segment.\033[0m")
@@ -702,10 +705,9 @@ def execute_command(parsed_command, database):# Create Database Command
                         else:
                             print(f"\033[91mError: Segment '{segment_name}' contains non-unique values and cannot be used as the Master Segment.\033[0m")
                             print(f"\033[93mCurrent Master Segment remains: {current_master}\033[0m")
-
                     return database
                 else:
-                    print(f"\033[91mError: Loop '{loop_name}' does not exist.\033[0m")  # Error for missing loop
+                    print(f"\033[91mError: Loop '{loop_name}' does not exist.\033[0m")
                     return database
 
 
@@ -718,33 +720,44 @@ def execute_command(parsed_command, database):# Create Database Command
 
 
 
-
 def check_master_segment(loop_data):
     current_master = loop_data.get('MasterSegment', None)
     max_segment_length = 0
     new_master_segment = None
 
     for segment_name, values in loop_data.items():
-        # Skip MasterSegment itself and check for unique values
-        if segment_name != 'MasterSegment' and len(values) == len(set(values)):
+        # Skip MasterSegment and ensure we have at least one value to consider a segment for master
+        if segment_name != 'MasterSegment' and values:
+            # Check for duplicate values
+            if len(values) == len(set(values)):
+                if len(values) > max_segment_length:
+                    new_master_segment = segment_name
+                    max_segment_length = len(values)
+            else:
+                print(f"\033[91mDuplicate value detected in segment '{segment_name}'. Skipping as master segment.\033[0m")
+            # Update max_segment_length even if there are duplicates
             if len(values) > max_segment_length:
-                new_master_segment = segment_name
                 max_segment_length = len(values)
 
-    # Update MasterSegment if a suitable new one is found
-    if new_master_segment and new_master_segment != current_master:
+    if new_master_segment:
         loop_data['MasterSegment'] = new_master_segment
+        if 'DefaultMasterSegment' in loop_data:
+            del loop_data['DefaultMasterSegment']
         print(f"\033[92mMaster Segment selected: {new_master_segment}\033[0m")
-    elif not new_master_segment and not current_master:
-        # Default to a generated master segment if no unique segment is available
-        loop_data['MasterSegment'] = list(map(str, range(1, max_segment_length + 1)))
-        print(f"\033[92mNew Master Segment created with default unique values: {loop_data['MasterSegment']}\033[0m")
     else:
-        # Keep the existing MasterSegment if no suitable replacement was found
-        if current_master:
-            print(f"\033[93mCurrent Master Segment remains: {current_master}\033[0m")
+        # If no segment qualifies, create or update DefaultMasterSegment with sequential values
+        if 'DefaultMasterSegment' not in loop_data:
+            loop_data['DefaultMasterSegment'] = []
+        current_length = len(loop_data['DefaultMasterSegment'])
+        if max_segment_length > current_length:
+            loop_data['DefaultMasterSegment'].extend(
+                str(i + 1) for i in range(current_length, max_segment_length)
+            )
+        loop_data['MasterSegment'] = 'DefaultMasterSegment'
+        print(f"\033[92mDefaultMasterSegment created/updated with values: {loop_data['DefaultMasterSegment']}\033[0m")
 
-
+    if current_master and current_master != loop_data['MasterSegment']:
+        print(f"\033[93mCurrent Master Segment remains: {current_master}\033[0m")
 
 
 
