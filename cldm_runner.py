@@ -209,7 +209,7 @@ def execute_command(parsed_command, database):# Create Database Command
                 database = CustomDatabase(db_file_path)
             database.set_database(db_file_path)
             database.save()  # Save the newly created database immediately
-            print(f"Database '{db_file_path}' created and loaded for use.")
+            print(f"\033[92mDatabase '{db_file_path}' created and loaded for use.\033[0m")
             return database
 
     # Load Database Command
@@ -225,7 +225,7 @@ def execute_command(parsed_command, database):# Create Database Command
         if database is None:  # Initialize the database if not loaded
             database = CustomDatabase(db_file_path)
         database.set_database(db_file_path)
-        print(f"Loaded database: {db_file_path}")
+        print(f"\033[92mLoaded database: {db_file_path}\033[0m")
         return database
 
     # Other commands require a database to be loaded first
@@ -285,7 +285,7 @@ def execute_command(parsed_command, database):# Create Database Command
                 loop_name = parsed_command['loop_name']
                 segment_name = parsed_command['segment_name']
                 value = parsed_command['value']
-                print(f"\033[93mCrafting value {value} in segment {segment_name} in Loop {loop_name}.\033[0m")  # Yellow for debug
+                print(f"\033[93mCrafting value {value} in segment {segment_name} in Loop {loop_name}.\033[0m")  # Debug
 
                 if loop_name in db_data and segment_name in db_data[loop_name]:
                 # Check if crafting into the master segment and enforce uniqueness
@@ -297,7 +297,7 @@ def execute_command(parsed_command, database):# Create Database Command
                         db_data[loop_name][segment_name].append(value)
                         check_master_segment(db_data[loop_name])  # Reassign master if needed
                     else:
-                    # Craft value normally
+                        # Craft value normally
                         db_data[loop_name][segment_name].append(value)
                         print(f"\033[92mValue '{value}' added to Segment '{segment_name}' in Loop '{loop_name}'.\033[0m")  # Green for user-visible text
         
@@ -305,9 +305,8 @@ def execute_command(parsed_command, database):# Create Database Command
                     database.save()
                     return database
                 else:
-                    print(f"\033[91mLoop '{loop_name}' or Segment '{segment_name}' does not exist.\033[0m")  # Red for error messages
+                    print(f"\033[91mLoop '{loop_name}' or Segment '{segment_name}' does not exist.\033[0m")  # Error messages
                     return database
-
 
             elif parsed_command['action'] == "select":
                 loop_name = parsed_command['loop_name']
@@ -351,10 +350,22 @@ def execute_command(parsed_command, database):# Create Database Command
                     print(f"\033[91mError: Loop '{loop_name}' or '{foreign_loop}' does not exist.\033[0m")
                     return database
 
+            # In execute_command function, add this for the destroy_database action
             elif parsed_command['action'] == "destroy_database":
-                database.clear()  # Clear all data in the database
-                print("\033[92mDatabase cleared successfully.\033[0m")  # Green for user-visible text
-                return database
+            # Access the file path from the database instance
+                try:
+                    if hasattr(database, 'db_file_path') and os.path.exists(database.db_file_path):
+                        os.remove(database.db_file_path)
+                        print(f"\033[92mDatabase '{database.db_file_path}' destroyed successfully.\033[0m")
+                        database = None  # Set database to None after destruction
+                    else:
+                        print(f"\033[91mError: No valid file path found for the loaded database.\033[0m")
+                except Exception as e:
+                    print(f"\033[91mError destroying database: {str(e)}\033[0m")
+
+                return None
+
+
 
             elif parsed_command['action'] == "visualize":
                 loop_name = parsed_command['loop_name']
@@ -393,7 +404,7 @@ def execute_command(parsed_command, database):# Create Database Command
                 if loop_name in database.data:
                     del database.data[loop_name]
                     database.save()
-                    print(f"\033[92mSegment Loop '{loop_name}' dismantled.\033[0m")
+                    print(f"\033[92mLoop '{loop_name}' dismantled.\033[0m")
                     return database
                 else:
                     print(f"\033[91mError: Loop '{loop_name}' does not exist.\033[0m")
@@ -610,31 +621,42 @@ def execute_command(parsed_command, database):# Create Database Command
                 aggregation_type = parsed_command['aggregation_type'].strip()
                 segment_name = parsed_command['segment_name'].strip()
                 loop_name = parsed_command['loop_name'].strip()
-                
-                # Check if 'filter_segment' and 'filter_value' exist in the parsed command
+    
+                # Check for filter segment and value in the parsed command
                 filter_segment = parsed_command.get('filter_segment', None)
                 filter_value = parsed_command.get('filter_value', None)
-                
+
                 if loop_name in db_data and segment_name in db_data[loop_name]:
-                    # If a filter is provided
+                    # Collect values based on whether a filter is provided
                     if filter_segment and filter_value:
                         filter_value = filter_value.strip('"')
                         if filter_segment in db_data[loop_name]:
-                            segment_values = [
-                                float(db_data[loop_name][segment_name][i])
-                                for i in range(len(db_data[loop_name][filter_segment]))
-                                if db_data[loop_name][filter_segment][i] == filter_value
-                            ]
+                            segment_values = []
+                            for i in range(len(db_data[loop_name][filter_segment])):
+                                if db_data[loop_name][filter_segment][i] == filter_value:
+                                    try:
+                                        # Try converting to float; skip if it fails
+                                        segment_values.append(float(db_data[loop_name][segment_name][i]))
+                                    except ValueError:
+                                        continue
                         else:
                             print(f"\033[91mError: Filter Segment '{filter_segment}' does not exist within '{loop_name}'.\033[0m")
-                            return
+                            return database
                     else:
-                        # If no filter is provided, collect all values
-                        segment_values = [
-                            float(value) for value in db_data[loop_name][segment_name]
-                        ]
-                    
-                    # Perform the aggregation based on the type
+                        # No filter provided; attempt to collect all float-convertible values
+                        segment_values = []
+                        for value in db_data[loop_name][segment_name]:
+                            try:
+                                segment_values.append(float(value))
+                            except ValueError:
+                                continue
+
+                    # If no float-convertible values are found, return an error
+                    if not segment_values:
+                        print(f"\033[91mError: No float-convertible values in segment '{segment_name}'.\033[0m")
+                        return database
+
+        # Perform the aggregation based on the type
                     if aggregation_type.lower() == "sum":
                         result = sum(segment_values)
                     elif aggregation_type.lower() == "gather maximum":
@@ -643,12 +665,15 @@ def execute_command(parsed_command, database):# Create Database Command
                         result = min(segment_values) if segment_values else "No matching values"
                     elif aggregation_type.lower() == "collect":
                         result = segment_values
-                    
+
+                    # Print the result of the aggregation
                     if result is not None:
-                        print(f"{aggregation_type} of {segment_name} within '{loop_name}': {result}")
+                         print(f"{aggregation_type} of {segment_name} within '{loop_name}': {result}")
                 else:
                     print(f"\033[91mError: Loop '{loop_name}' or Segment '{segment_name}' does not exist.\033[0m")
+    
                 return database
+
 
 
 
@@ -657,25 +682,34 @@ def execute_command(parsed_command, database):# Create Database Command
             elif parsed_command['action'] == "change_master":
                 loop_name = parsed_command['loop_name']
                 segment_name = parsed_command['segment_name']
-                print(f"\033[93mAttempting to change master segment to {segment_name} for loop {loop_name}\033[0m")  # Yellow for debug
+                print(f"\033[93mAttempting to change master segment to {segment_name} for loop {loop_name}\033[0m")  # Debug message
 
                 if loop_name in db_data:
                     segment_values = db_data[loop_name].get(segment_name, [])
+
+                    # Check if the selected segment has unique values
                     if len(segment_values) == len(set(segment_values)):
+                    # Set the new master segment only if unique
                         db_data[loop_name]['MasterSegment'] = segment_name
-                        print(f"\033[92mMaster Segment changed to {segment_name} for Loop {loop_name}.\033[0m")  # Green for user-visible text
-                        
+                        print(f"\033[92mMaster Segment changed to {segment_name} for Loop {loop_name}.\033[0m")
+                        database.save()  # Save changes as the new master has been set
                     else:
-                        print(f"\033[91mError: Segment {segment_name} contains non-unique values and cannot be used as the Master Segment.\033[0m")  # Red for error messages
-                    database.save()
-                    return database        
-                else:
-                    print(f"\033[91mLoop {loop_name} does not exist.\033[0m")  # Red for error messages
+                    # Keep the current master segment if it exists
+                        current_master = db_data[loop_name].get('MasterSegment', 'None')
+                        if current_master == 'None':
+                            print(f"\033[91mError: Segment '{segment_name}' contains non-unique values and cannot be used as the Master Segment.\033[0m")
+                            print(f"\033[93mNo Master Segment is currently set.\033[0m")
+                        else:
+                            print(f"\033[91mError: Segment '{segment_name}' contains non-unique values and cannot be used as the Master Segment.\033[0m")
+                            print(f"\033[93mCurrent Master Segment remains: {current_master}\033[0m")
+
                     return database
-            else:
-                print("\033[91mInvalid command.\033[0m")  # Red for error messages
-                return database
-            return database
+                else:
+                    print(f"\033[91mError: Loop '{loop_name}' does not exist.\033[0m")  # Error for missing loop
+                    return database
+
+
+
         
         except IndexError as e:
             print(f"\033[91mError: {str(e)}\033[0m")  # Red for error messages
@@ -686,30 +720,30 @@ def execute_command(parsed_command, database):# Create Database Command
 
 
 def check_master_segment(loop_data):
-    """Ensures there is a valid master segment with unique values in the loop."""
     current_master = loop_data.get('MasterSegment', None)
     max_segment_length = 0
     new_master_segment = None
 
-    # Search for a potential new master segment with unique values
     for segment_name, values in loop_data.items():
+        # Skip MasterSegment itself and check for unique values
         if segment_name != 'MasterSegment' and len(values) == len(set(values)):
             if len(values) > max_segment_length:
                 new_master_segment = segment_name
                 max_segment_length = len(values)
 
-    # Set a new master if a unique segment with max length is found
+    # Update MasterSegment if a suitable new one is found
     if new_master_segment and new_master_segment != current_master:
         loop_data['MasterSegment'] = new_master_segment
         print(f"\033[92mMaster Segment selected: {new_master_segment}\033[0m")
-    elif not new_master_segment:
-        # If no unique segment is found, create a default master segment
-        max_length = max((len(values) for values in loop_data.values() if isinstance(values, list)), default=0)
-        loop_data['MasterSegment'] = 'DefaultMaster'
-        loop_data['DefaultMaster'] = list(map(str, range(1, max_length + 1)))
-        print(f"\033[92mNew Default Master Segment created with unique values: {loop_data['DefaultMaster']}\033[0m")
+    elif not new_master_segment and not current_master:
+        # Default to a generated master segment if no unique segment is available
+        loop_data['MasterSegment'] = list(map(str, range(1, max_segment_length + 1)))
+        print(f"\033[92mNew Master Segment created with default unique values: {loop_data['MasterSegment']}\033[0m")
+    else:
+        # Keep the existing MasterSegment if no suitable replacement was found
+        if current_master:
+            print(f"\033[93mCurrent Master Segment remains: {current_master}\033[0m")
 
-### Craft Command Update in `cldm_runner.py`
 
 
 
